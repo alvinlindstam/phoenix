@@ -832,10 +832,15 @@ Ajax.states = {complete: 4}
 
 
 
-export var Presence = {
+export class Presence {
+  constructor(initialState, onJoin, onLeave){
+    this.state = initialState || {}
+    this.onJoin = onJoin || (() => {})
+    this.onLeave = onLeave || (() => {})
+  }
 
-  syncState(currentState, newState, onJoin, onLeave){
-    let state = this.clone(currentState)
+  syncState(newState){
+    let state = this.state
     let joins = {}
     let leaves = {}
 
@@ -863,13 +868,11 @@ export var Presence = {
         joins[key] = newPresence
       }
     })
-    return this.syncDiff(state, {joins: joins, leaves: leaves}, onJoin, onLeave)
-  },
+    return this.syncDiff({joins: joins, leaves: leaves})
+  }
 
-  syncDiff(currentState, {joins, leaves}, onJoin, onLeave){
-    let state = this.clone(currentState)
-    if(!onJoin){ onJoin = function(){} }
-    if(!onLeave){ onLeave = function(){} }
+  syncDiff({joins, leaves}){
+    let state = this.clone(this.state)
 
     this.map(joins, (key, newPresence) => {
       let currentPresence = state[key]
@@ -877,7 +880,7 @@ export var Presence = {
       if(currentPresence){
         state[key].metas.unshift(...currentPresence.metas)
       }
-      onJoin(key, currentPresence, newPresence)
+      this.onJoin(key, currentPresence, newPresence)
     })
     this.map(leaves, (key, leftPresence) => {
       let currentPresence = state[key]
@@ -886,27 +889,45 @@ export var Presence = {
       currentPresence.metas = currentPresence.metas.filter(p => {
         return refsToRemove.indexOf(p.phx_ref) < 0
       })
-      onLeave(key, currentPresence, leftPresence)
+      this.onLeave(key, currentPresence, leftPresence)
       if(currentPresence.metas.length === 0){
         delete state[key]
       }
     })
-    return state
-  },
+    this.state = state
+  }
 
-  list(presences, chooser){
+  list(chooser){
     if(!chooser){ chooser = function(key, pres){ return pres } }
 
-    return this.map(presences, (key, presence) => {
+    return this.map(this.state, (key, presence) => {
       return chooser(key, presence)
     })
-  },
+  }
+
+  // legace functional API, used in phoenix<1.3
+  static syncState(currentState, newState, onJoin, onLeave){
+    const instance = new Presence(currentState, onJoin, onLeave)
+    instance.syncState(newState)
+    return instance.state
+  }
+
+  static syncDiff(currentState, diff, onJoin, onLeave){
+    const instance = new Presence(currentState, onJoin, onLeave)
+    instance.syncDiff(diff)
+    return instance.state
+  }
+
+  static list(presences, chooser){
+    const instance = new Presence(presences)
+    return instance.list(chooser)
+  }
 
   // private
 
   map(obj, func){
     return Object.getOwnPropertyNames(obj).map(key => func(key, obj[key]))
-  },
+  }
 
   clone(obj){ return JSON.parse(JSON.stringify(obj)) }
 }

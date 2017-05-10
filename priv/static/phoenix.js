@@ -1160,112 +1160,152 @@ var Ajax = exports.Ajax = function () {
 
 Ajax.states = { complete: 4 };
 
-var Presence = exports.Presence = {
-  syncState: function syncState(currentState, newState, onJoin, onLeave) {
-    var _this13 = this;
+var Presence = exports.Presence = function () {
+  function Presence(initialState, onJoin, onLeave) {
+    _classCallCheck(this, Presence);
 
-    var state = this.clone(currentState);
-    var joins = {};
-    var leaves = {};
-
-    this.map(state, function (key, presence) {
-      if (!newState[key]) {
-        leaves[key] = presence;
-      }
-    });
-    this.map(newState, function (key, newPresence) {
-      var currentPresence = state[key];
-      if (currentPresence) {
-        var newRefs = newPresence.metas.map(function (m) {
-          return m.phx_ref;
-        });
-        var curRefs = currentPresence.metas.map(function (m) {
-          return m.phx_ref;
-        });
-        var joinedMetas = newPresence.metas.filter(function (m) {
-          return curRefs.indexOf(m.phx_ref) < 0;
-        });
-        var leftMetas = currentPresence.metas.filter(function (m) {
-          return newRefs.indexOf(m.phx_ref) < 0;
-        });
-        if (joinedMetas.length > 0) {
-          joins[key] = newPresence;
-          joins[key].metas = joinedMetas;
-        }
-        if (leftMetas.length > 0) {
-          leaves[key] = _this13.clone(currentPresence);
-          leaves[key].metas = leftMetas;
-        }
-      } else {
-        joins[key] = newPresence;
-      }
-    });
-    return this.syncDiff(state, { joins: joins, leaves: leaves }, onJoin, onLeave);
-  },
-  syncDiff: function syncDiff(currentState, _ref2, onJoin, onLeave) {
-    var joins = _ref2.joins,
-        leaves = _ref2.leaves;
-
-    var state = this.clone(currentState);
-    if (!onJoin) {
-      onJoin = function onJoin() {};
-    }
-    if (!onLeave) {
-      onLeave = function onLeave() {};
-    }
-
-    this.map(joins, function (key, newPresence) {
-      var currentPresence = state[key];
-      state[key] = newPresence;
-      if (currentPresence) {
-        var _state$key$metas;
-
-        (_state$key$metas = state[key].metas).unshift.apply(_state$key$metas, _toConsumableArray(currentPresence.metas));
-      }
-      onJoin(key, currentPresence, newPresence);
-    });
-    this.map(leaves, function (key, leftPresence) {
-      var currentPresence = state[key];
-      if (!currentPresence) {
-        return;
-      }
-      var refsToRemove = leftPresence.metas.map(function (m) {
-        return m.phx_ref;
-      });
-      currentPresence.metas = currentPresence.metas.filter(function (p) {
-        return refsToRemove.indexOf(p.phx_ref) < 0;
-      });
-      onLeave(key, currentPresence, leftPresence);
-      if (currentPresence.metas.length === 0) {
-        delete state[key];
-      }
-    });
-    return state;
-  },
-  list: function list(presences, chooser) {
-    if (!chooser) {
-      chooser = function chooser(key, pres) {
-        return pres;
-      };
-    }
-
-    return this.map(presences, function (key, presence) {
-      return chooser(key, presence);
-    });
-  },
-
-
-  // private
-
-  map: function map(obj, func) {
-    return Object.getOwnPropertyNames(obj).map(function (key) {
-      return func(key, obj[key]);
-    });
-  },
-  clone: function clone(obj) {
-    return JSON.parse(JSON.stringify(obj));
+    this.state = initialState || {};
+    this.onJoin = onJoin || function () {};
+    this.onLeave = onLeave || function () {};
   }
-};
+
+  _createClass(Presence, [{
+    key: "syncState",
+    value: function syncState(newState) {
+      var _this13 = this;
+
+      var state = this.state;
+      var joins = {};
+      var leaves = {};
+
+      this.map(state, function (key, presence) {
+        if (!newState[key]) {
+          leaves[key] = presence;
+        }
+      });
+      this.map(newState, function (key, newPresence) {
+        var currentPresence = state[key];
+        if (currentPresence) {
+          var newRefs = newPresence.metas.map(function (m) {
+            return m.phx_ref;
+          });
+          var curRefs = currentPresence.metas.map(function (m) {
+            return m.phx_ref;
+          });
+          var joinedMetas = newPresence.metas.filter(function (m) {
+            return curRefs.indexOf(m.phx_ref) < 0;
+          });
+          var leftMetas = currentPresence.metas.filter(function (m) {
+            return newRefs.indexOf(m.phx_ref) < 0;
+          });
+          if (joinedMetas.length > 0) {
+            joins[key] = newPresence;
+            joins[key].metas = joinedMetas;
+          }
+          if (leftMetas.length > 0) {
+            leaves[key] = _this13.clone(currentPresence);
+            leaves[key].metas = leftMetas;
+          }
+        } else {
+          joins[key] = newPresence;
+        }
+      });
+      return this.syncDiff({ joins: joins, leaves: leaves });
+    }
+  }, {
+    key: "syncDiff",
+    value: function syncDiff(_ref2) {
+      var _this14 = this;
+
+      var joins = _ref2.joins,
+          leaves = _ref2.leaves;
+
+      var state = this.clone(this.state);
+
+      this.map(joins, function (key, newPresence) {
+        var currentPresence = state[key];
+        state[key] = newPresence;
+        if (currentPresence) {
+          var _state$key$metas;
+
+          (_state$key$metas = state[key].metas).unshift.apply(_state$key$metas, _toConsumableArray(currentPresence.metas));
+        }
+        _this14.onJoin(key, currentPresence, newPresence);
+      });
+      this.map(leaves, function (key, leftPresence) {
+        var currentPresence = state[key];
+        if (!currentPresence) {
+          return;
+        }
+        var refsToRemove = leftPresence.metas.map(function (m) {
+          return m.phx_ref;
+        });
+        currentPresence.metas = currentPresence.metas.filter(function (p) {
+          return refsToRemove.indexOf(p.phx_ref) < 0;
+        });
+        _this14.onLeave(key, currentPresence, leftPresence);
+        if (currentPresence.metas.length === 0) {
+          delete state[key];
+        }
+      });
+      this.state = state;
+    }
+  }, {
+    key: "list",
+    value: function list(chooser) {
+      if (!chooser) {
+        chooser = function chooser(key, pres) {
+          return pres;
+        };
+      }
+
+      return this.map(this.state, function (key, presence) {
+        return chooser(key, presence);
+      });
+    }
+
+    // legace functional API, used in phoenix<1.3
+
+  }, {
+    key: "map",
+
+
+    // private
+
+    value: function map(obj, func) {
+      return Object.getOwnPropertyNames(obj).map(function (key) {
+        return func(key, obj[key]);
+      });
+    }
+  }, {
+    key: "clone",
+    value: function clone(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+  }], [{
+    key: "syncState",
+    value: function syncState(currentState, newState, onJoin, onLeave) {
+      var instance = new Presence(currentState, onJoin, onLeave);
+      instance.syncState(newState);
+      return instance.state;
+    }
+  }, {
+    key: "syncDiff",
+    value: function syncDiff(currentState, diff, onJoin, onLeave) {
+      var instance = new Presence(currentState, onJoin, onLeave);
+      instance.syncDiff(diff);
+      return instance.state;
+    }
+  }, {
+    key: "list",
+    value: function list(presences, chooser) {
+      var instance = new Presence(presences);
+      return instance.list(chooser);
+    }
+  }]);
+
+  return Presence;
+}();
 
 // Creates a timer that accepts a `timerCalc` function to perform
 // calculated timeout retries, such as exponential backoff.
@@ -1280,6 +1320,7 @@ var Presence = exports.Presence = {
 //    reconnectTimer.reset()
 //    reconnectTimer.scheduleTimeout() // fires after 1000
 //
+
 
 var Timer = function () {
   function Timer(callback, timerCalc) {
@@ -1303,13 +1344,13 @@ var Timer = function () {
   }, {
     key: "scheduleTimeout",
     value: function scheduleTimeout() {
-      var _this14 = this;
+      var _this15 = this;
 
       clearTimeout(this.timer);
 
       this.timer = setTimeout(function () {
-        _this14.tries = _this14.tries + 1;
-        _this14.callback();
+        _this15.tries = _this15.tries + 1;
+        _this15.callback();
       }, this.timerCalc(this.tries + 1));
     }
   }]);

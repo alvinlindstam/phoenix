@@ -231,6 +231,49 @@ describe("class based API", () => {
     })
   })
 
+  describe("onChange", function(){
+    beforeEach(() => {
+      const changeData = {}
+      this.presence = new Presence()
+      this.presence.onChange( (presence, oldState) => {
+        changeData.presenceState = clone(presence.state)
+        changeData.oldState = oldState
+      })
+      this.changeData = changeData
+    })
+
+    it("with empty state and syncDiff", () => {
+      const joins = {u1: {metas: [{id: 1, phx_ref: "1"}]}}
+
+      this.presence.syncDiff({joins: joins, leaves: {}})
+      assert.deepEqual(this.presence.state, joins)
+      assert.deepEqual(this.changeData.presenceState, joins)
+      assert.deepEqual(this.changeData.oldState, {})
+    })
+
+    it("with empty state and syncState", () => {
+      const newState = {u1: {metas: [{id: 1, phx_ref: "1"}]}}
+
+      this.presence.syncState(newState)
+      assert.deepEqual(this.presence.state, newState)
+      assert.deepEqual(this.changeData.presenceState, newState)
+      assert.deepEqual(this.changeData.oldState, {})
+    })
+
+    it("with prepopulated state and syncDiff", () => {
+      this.presence.state = fixtures.state()
+      this.presence.syncDiff({joins: fixtures.joins(), leaves: fixtures.leaves()})
+
+      const newState = {
+        u1: {metas: [{id: 1, phx_ref: "1"}, {id: 1, phx_ref: "1.2"}]},
+        u3: {metas: [{id: 3, phx_ref: "3"}]}
+      }
+
+      assert.deepEqual(this.presence.state, newState)
+      assert.deepEqual(this.changeData.presenceState, newState)
+      assert.deepEqual(this.changeData.oldState, fixtures.state())
+    })
+  })
 
   describe("list", () => {
     it("lists full presence by default", () => {

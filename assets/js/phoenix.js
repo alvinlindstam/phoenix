@@ -115,7 +115,8 @@
 // array if the presence is left completely.
 //
 // `onChange` hooks are called after any batch of updates to the presence state are made.
-// It's called with the presence instance as the first argument.
+// It's called with the presence instance as the first argument and the old presence state
+// as the second. When this is called, presence.state has been updated to the new presence state.
 //
 // ### Syncing state from the server
 //
@@ -889,7 +890,8 @@ export class Presence {
   }
 
   syncDiff({joins, leaves}){
-    let state = this.clone(this.state)
+    const oldState = this.state
+    let state = this.clone(oldState)
 
     this.map(joins, (key, newPresence) => {
       let currentPresence = state[key]
@@ -912,7 +914,7 @@ export class Presence {
       }
     })
     this.state = state
-    this._trigger("change", this)
+    this._trigger("change", this, oldState)
   }
 
   list(chooser){

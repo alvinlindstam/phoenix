@@ -134,7 +134,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 // array if the presence is left completely.
 //
 // `onChange` hooks are called after any batch of updates to the presence state are made.
-// It's called with the presence instance as the first argument.
+// It's called with the presence instance as the first argument and the old presence state
+// as the second. When this is called, presence.state has been updated to the new presence state.
 //
 // ### Syncing state from the server
 //
@@ -1258,7 +1259,8 @@ var Presence = exports.Presence = function () {
       var joins = _ref2.joins,
           leaves = _ref2.leaves;
 
-      var state = this.clone(this.state);
+      var oldState = this.state;
+      var state = this.clone(oldState);
 
       this.map(joins, function (key, newPresence) {
         var currentPresence = state[key];
@@ -1287,7 +1289,7 @@ var Presence = exports.Presence = function () {
         }
       });
       this.state = state;
-      this._trigger("change", this);
+      this._trigger("change", this, oldState);
     }
   }, {
     key: "list",

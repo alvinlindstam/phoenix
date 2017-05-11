@@ -1225,18 +1225,8 @@ var Presence = exports.Presence = function () {
       this.map(newState, function (key, newPresence) {
         var currentPresence = state[key];
         if (currentPresence) {
-          var newRefs = newPresence.metas.map(function (m) {
-            return m.phx_ref;
-          });
-          var curRefs = currentPresence.metas.map(function (m) {
-            return m.phx_ref;
-          });
-          var joinedMetas = newPresence.metas.filter(function (m) {
-            return curRefs.indexOf(m.phx_ref) < 0;
-          });
-          var leftMetas = currentPresence.metas.filter(function (m) {
-            return newRefs.indexOf(m.phx_ref) < 0;
-          });
+          var joinedMetas = _this13._onlyNewMetas(newPresence.metas, currentPresence.metas);
+          var leftMetas = _this13._onlyNewMetas(currentPresence.metas, newPresence.metas);
           if (joinedMetas.length > 0) {
             joins[key] = newPresence;
             joins[key].metas = joinedMetas;
@@ -1264,12 +1254,16 @@ var Presence = exports.Presence = function () {
 
       this.map(joins, function (key, newPresence) {
         var currentPresence = state[key];
-        state[key] = newPresence;
         if (currentPresence) {
-          var _state$key$metas;
+          var _newPresence$metas;
 
-          (_state$key$metas = state[key].metas).unshift.apply(_state$key$metas, _toConsumableArray(currentPresence.metas));
+          newPresence.metas = _this14._onlyNewMetas(newPresence.metas, currentPresence.metas);
+          if (newPresence.metas.length === 0) {
+            return;
+          }
+          (_newPresence$metas = newPresence.metas).unshift.apply(_newPresence$metas, _toConsumableArray(currentPresence.metas));
         }
+        state[key] = newPresence;
         _this14._trigger("join", key, currentPresence, newPresence);
       });
       this.map(leaves, function (key, leftPresence) {
@@ -1277,12 +1271,7 @@ var Presence = exports.Presence = function () {
         if (!currentPresence) {
           return;
         }
-        var refsToRemove = leftPresence.metas.map(function (m) {
-          return m.phx_ref;
-        });
-        currentPresence.metas = currentPresence.metas.filter(function (p) {
-          return refsToRemove.indexOf(p.phx_ref) < 0;
-        });
+        currentPresence.metas = _this14._onlyNewMetas(currentPresence.metas, leftPresence.metas);
         _this14._trigger("leave", key, currentPresence, leftPresence);
         if (currentPresence.metas.length === 0) {
           delete state[key];
@@ -1302,6 +1291,18 @@ var Presence = exports.Presence = function () {
 
       return this.map(this.state, function (key, presence) {
         return chooser(key, presence);
+      });
+    }
+  }, {
+    key: "_onlyNewMetas",
+    value: function _onlyNewMetas(metas, oldMetas) {
+      var oldRefs = oldMetas.map(function (m) {
+        return m.phx_ref;
+      });
+      return metas.filter(function (_ref3) {
+        var phx_ref = _ref3.phx_ref;
+
+        return oldRefs.indexOf(phx_ref) < 0;
       });
     }
 

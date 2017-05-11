@@ -870,10 +870,8 @@ export class Presence {
     this.map(newState, (key, newPresence) => {
       let currentPresence = state[key]
       if(currentPresence){
-        let newRefs = newPresence.metas.map(m => m.phx_ref)
-        let curRefs = currentPresence.metas.map(m => m.phx_ref)
-        let joinedMetas = newPresence.metas.filter(m => curRefs.indexOf(m.phx_ref) < 0)
-        let leftMetas = currentPresence.metas.filter(m => newRefs.indexOf(m.phx_ref) < 0)
+        let joinedMetas = this._onlyNewMetas(newPresence.metas, currentPresence.metas)
+        let leftMetas = this._onlyNewMetas(currentPresence.metas, newPresence.metas)
         if(joinedMetas.length > 0){
           joins[key] = newPresence
           joins[key].metas = joinedMetas
@@ -895,19 +893,18 @@ export class Presence {
 
     this.map(joins, (key, newPresence) => {
       let currentPresence = state[key]
-      state[key] = newPresence
       if(currentPresence){
-        state[key].metas.unshift(...currentPresence.metas)
+        newPresence.metas = this._onlyNewMetas(newPresence.metas, currentPresence.metas)
+        if(newPresence.metas.length === 0) { return }
+        newPresence.metas.unshift(...currentPresence.metas)
       }
+      state[key] = newPresence
       this._trigger("join", key, currentPresence, newPresence)
     })
     this.map(leaves, (key, leftPresence) => {
       let currentPresence = state[key]
       if(!currentPresence){ return }
-      let refsToRemove = leftPresence.metas.map(m => m.phx_ref)
-      currentPresence.metas = currentPresence.metas.filter(p => {
-        return refsToRemove.indexOf(p.phx_ref) < 0
-      })
+      currentPresence.metas = this._onlyNewMetas(currentPresence.metas, leftPresence.metas)
       this._trigger("leave", key, currentPresence, leftPresence)
       if(currentPresence.metas.length === 0){
         delete state[key]
@@ -922,6 +919,13 @@ export class Presence {
 
     return this.map(this.state, (key, presence) => {
       return chooser(key, presence)
+    })
+  }
+
+  _onlyNewMetas(metas, oldMetas) {
+    let oldRefs = oldMetas.map(m => m.phx_ref)
+    return metas.filter(({phx_ref}) => {
+      return oldRefs.indexOf(phx_ref) < 0
     })
   }
 

@@ -302,4 +302,16 @@ describe("class based API", () => {
       ])
     })
   })
+
+  describe("out of sync events", () => {
+    it("duplicate join event after state", () => {
+      const presence = new Presence()
+      presence.state = fixtures.state()
+      presence.onJoin((...args) => {
+        assert(false, "Should not rejoin, got: " + JSON.stringify(args))
+      })
+      presence.syncDiff({joins: {u1: {metas: [{id: 1, phx_ref: "1"}]}}, leaves: {}})
+      assert.deepEqual(presence.state, fixtures.state())
+    })
+  })
 })

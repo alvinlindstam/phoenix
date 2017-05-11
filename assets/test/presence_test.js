@@ -313,5 +313,31 @@ describe("class based API", () => {
       presence.syncDiff({joins: {u1: {metas: [{id: 1, phx_ref: "1"}]}}, leaves: {}})
       assert.deepEqual(presence.state, fixtures.state())
     })
+
+    it("duplicate join event before state", () => {
+      const presence = new Presence()
+      const joins = {u1: {metas: [{id: 1, phx_ref: "1"}]}}
+      const newState = fixtures.state()
+      const joined = {}
+      presence.onJoin( (key, current, newPres) => {
+        joined[key] = {current: current, newPres: newPres}
+      })
+
+      // Receive join event for u1
+      presence.syncDiff({joins: joins, leaves: {}})
+      assert.deepEqual(presence.state, joins)
+      assert.deepEqual(joined, {
+        u1: {current: undefined, newPres: joins.u1}
+      })
+
+      // Receive state including the previously handled join
+      presence.syncState(fixtures.state())
+      assert.deepEqual(presence.state, newState)
+      assert.deepEqual(joined, {
+        u1: {current: undefined, newPres: joins.u1},
+        u2: {current: undefined, newPres: newState.u2},
+        u3: {current: undefined, newPres: newState.u3},
+      })
+    })
   })
 })

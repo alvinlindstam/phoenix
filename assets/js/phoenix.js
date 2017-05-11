@@ -97,24 +97,37 @@
 //
 // ## Presence
 //
-// The `Presence` object provides features for syncing presence information
+// The `Presence` class provides features for syncing presence information
 // from the server with the client and handling presences joining and leaving.
 //
-// ### Syncing initial state from the server
-//
-// `Presence.syncState` is used to sync the list of presences on the server
-// with the client's state. An optional `onJoin` and `onLeave` callback can
+// ### Hooks
+// Optional `onJoin`, `onLeave` and `onChange` hooks can
 // be provided to react to changes in the client's local presences across
 // disconnects and reconnects with the server.
 //
-// `Presence.syncDiff` is used to sync a diff of presence join and leave
-// events from the server, as they happen. Like `syncState`, `syncDiff`
-// accepts optional `onJoin` and `onLeave` callbacks to react to a user
-// joining or leaving from a device.
+// `onJoin` hooks are called once for each presence key that receives new metas.
+// It's called with three arguments: The presence key, the old presence for the key
+// (or undefined) and the new presence for the given key.
+//
+// `onLeave` hooks are called once for each presence key that leaves any metas.
+// It's called with three arguments: The presence key, the new presence for the key
+// and the old presence for the given key. The new presence will have an empty metas
+// array if the presence is left completely.
+//
+// `onChange` hooks are called after any batch of updates to the presence state are made.
+// It's called with the presence instance as the first argument.
+//
+// ### Syncing state from the server
+//
+// `presence.syncState` is used to sync the list of presences on the server
+// with the client's state.
+//
+// `presence.syncDiff` is used to sync a diff of presence join and leave
+// events from the server, as they happen.
 //
 // ### Listing Presences
 //
-// `Presence.list` is used to return a list of presence information
+// `presence.list` is used to return a list of presence information
 // based on the local state of metadata. By default, all presence
 // metadata is returned, but a `listBy` function can be supplied to
 // allow the client to select which metadata to use for a given presence.
@@ -126,45 +139,41 @@
 // each user. This could be the first tab they opened, or the first device
 // they came online from:
 //
-//     let state = {}
-//     state = Presence.syncState(state, stateFromServer)
+//     let state = new Presence()
+//     state.syncState(stateFromServer)
 //     let listBy = (id, {metas: [first, ...rest]}) => {
 //       first.count = rest.length + 1 // count of this user's presences
 //       first.id = id
 //       return first
 //     }
-//     let onlineUsers = Presence.list(state, listBy)
-//
+//     let onlineUsers = state.list(listBy)
 //
 // ### Example Usage
 //
+//     const presence = new Presence()
 //     // detect if user has joined for the 1st time or from another tab/device
-//     let onJoin = (id, current, newPres) => {
+//     presence.onJoin( (id, current, newPres) => {
 //       if(!current){
 //         console.log("user has entered for the first time", newPres)
 //       } else {
 //         console.log("user additional presence", newPres)
 //       }
-//     }
+//     })
 //     // detect if user has left from all tabs/devices, or is still present
-//     let onLeave = (id, current, leftPres) => {
+//     presence.onLeave( (id, current, leftPres) => {
 //       if(current.metas.length === 0){
 //         console.log("user has left from all devices", leftPres)
 //       } else {
 //         console.log("user left from a device", leftPres)
 //       }
-//     }
-//     let presences = {} // client's initial empty presence state
+//     })
+//     // react to any changes to the state
+//     presence.onChange( (presence) => displayUsers(presence.list()) )
+//
 //     // receive initial presence data from server, sent after join
-//     myChannel.on("presence_state", state => {
-//       presences = Presence.syncState(presences, state, onJoin, onLeave)
-//       displayUsers(Presence.list(presences))
-//     })
+//     myChannel.on("presence_state", presence.syncState)
 //     // receive "presence_diff" from server, containing join/leave events
-//     myChannel.on("presence_diff", diff => {
-//       presences = Presence.syncDiff(presences, diff, onJoin, onLeave)
-//       this.setState({users: Presence.list(room.presences, listBy)})
-//     })
+//     myChannel.on("presence_diff", presence.syncDiff)
 //
 const VSN = "1.0.0"
 const SOCKET_STATES = {connecting: 0, open: 1, closing: 2, closed: 3}

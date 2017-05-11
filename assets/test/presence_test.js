@@ -331,13 +331,53 @@ describe("class based API", () => {
       })
 
       // Receive state including the previously handled join
-      presence.syncState(fixtures.state())
+      presence.syncState(newState)
       assert.deepEqual(presence.state, newState)
       assert.deepEqual(joined, {
         u1: {current: undefined, newPres: joins.u1},
         u2: {current: undefined, newPres: newState.u2},
         u3: {current: undefined, newPres: newState.u3},
       })
+    })
+
+    it("reapplies unmatched leave event on state", () => {
+      const presence = new Presence()
+      const leaves = {u1: {metas: [{id: 1, phx_ref: "1"}]}}
+      const newState = fixtures.state()
+      const expectedState = {u2: newState.u2, u3: newState.u3}
+
+      // Receive leave event for u1
+      presence.syncDiff({joins: {}, leaves: leaves})
+      assert.deepEqual(presence.state, {})
+      assert.deepEqual(presence.unhandledLeaves, leaves)
+
+      // Receive state including the previously handled leave
+      presence.syncState(newState)
+      assert.deepEqual(presence.state, expectedState)
+    })
+
+    it("reapplies unmatched leave event on state, when some metas remain", () => {
+      const presence = new Presence()
+      const prevState = {u1: {metas: [{id: 1, phx_ref: "1.1"}]}}
+      const leaves = {u1: {metas: [{id: 1, phx_ref: "1.2"}]}}
+
+      const newState = {
+        u1: {metas: [{id: 1, phx_ref: "1.1"}, {id: 1, phx_ref: "1.2"}]},
+        u2: {metas: [{id: 2, phx_ref: "2"}]},
+        u3: {metas: [{id: 3, phx_ref: "3"}]}
+      }
+
+      const expectedState = {u1: {metas: [{id: 1, phx_ref: "1.1"}]}, u2: newState.u2, u3: newState.u3}
+
+      // Receive leave event for u1
+      presence.state = prevState
+      presence.syncDiff({joins: {}, leaves: leaves})
+      assert.deepEqual(presence.state, prevState)
+      assert.deepEqual(presence.unhandledLeaves, leaves)
+
+      // Receive state including the previously handled leave
+      presence.syncState(newState)
+      assert.deepEqual(presence.state, expectedState)
     })
   })
 })

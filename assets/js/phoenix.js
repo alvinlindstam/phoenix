@@ -850,6 +850,7 @@ export class Presence {
       leave: [],
       change: [],
     }
+    this.unhandledLeaves = {}
   }
 
   onJoin(callback) {this.hooks.join.push(callback)}
@@ -884,7 +885,12 @@ export class Presence {
         joins[key] = newPresence
       }
     })
-    return this.syncDiff({joins: joins, leaves: leaves})
+    this.syncDiff({joins: joins, leaves: leaves})
+    if(Object.keys(this.unhandledLeaves).length > 0) {
+      const leaves = this.unhandledLeaves
+      this.unhandledLeaves = {}
+      this.syncDiff({joins: {}, leaves: leaves})
+    }
   }
 
   syncDiff({joins, leaves}){
@@ -903,6 +909,10 @@ export class Presence {
     })
     this.map(leaves, (key, leftPresence) => {
       let currentPresence = state[key]
+
+      const unmatchedMetas = this._onlyNewMetas(leftPresence.metas, currentPresence ? currentPresence.metas : [])
+      unmatchedMetas.length > 0 && this._addUnhandledLeaves(key, unmatchedMetas)
+
       if(!currentPresence){ return }
       currentPresence.metas = this._onlyNewMetas(currentPresence.metas, leftPresence.metas)
       this._trigger("leave", key, currentPresence, leftPresence)
@@ -927,6 +937,14 @@ export class Presence {
     return metas.filter(({phx_ref}) => {
       return oldRefs.indexOf(phx_ref) < 0
     })
+  }
+
+  _addUnhandledLeaves(key, metas) {
+    if(this.unhandledLeaves[key]) {
+      this.unhandledLeaves[key].metas.concat(metas)
+    } else {
+      this.unhandledLeaves[key] = {metas: metas}
+    }
   }
 
   // legace functional API, used in phoenix<1.3

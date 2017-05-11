@@ -1180,6 +1180,7 @@ var Presence = exports.Presence = function () {
       leave: [],
       change: []
     };
+    this.unhandledLeaves = {};
   }
 
   _createClass(Presence, [{
@@ -1239,7 +1240,12 @@ var Presence = exports.Presence = function () {
           joins[key] = newPresence;
         }
       });
-      return this.syncDiff({ joins: joins, leaves: leaves });
+      this.syncDiff({ joins: joins, leaves: leaves });
+      if (Object.keys(this.unhandledLeaves).length > 0) {
+        var _leaves = this.unhandledLeaves;
+        this.unhandledLeaves = {};
+        this.syncDiff({ joins: {}, leaves: _leaves });
+      }
     }
   }, {
     key: "syncDiff",
@@ -1268,6 +1274,10 @@ var Presence = exports.Presence = function () {
       });
       this.map(leaves, function (key, leftPresence) {
         var currentPresence = state[key];
+
+        var unmatchedMetas = _this14._onlyNewMetas(leftPresence.metas, currentPresence ? currentPresence.metas : []);
+        unmatchedMetas.length > 0 && _this14._addUnhandledLeaves(key, unmatchedMetas);
+
         if (!currentPresence) {
           return;
         }
@@ -1304,6 +1314,15 @@ var Presence = exports.Presence = function () {
 
         return oldRefs.indexOf(phx_ref) < 0;
       });
+    }
+  }, {
+    key: "_addUnhandledLeaves",
+    value: function _addUnhandledLeaves(key, metas) {
+      if (this.unhandledLeaves[key]) {
+        this.unhandledLeaves[key].metas.concat(metas);
+      } else {
+        this.unhandledLeaves[key] = { metas: metas };
+      }
     }
 
     // legace functional API, used in phoenix<1.3

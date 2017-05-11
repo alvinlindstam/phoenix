@@ -142,3 +142,121 @@ describe("list", () => {
     ])
   })
 })
+
+describe("class based API", () => {
+  describe("syncState", () => {
+    it("syncs empty state", () => {
+      const newState = {u1: {metas: [{id: 1, phx_ref: "1"}]}}
+      const presence = new Presence()
+      presence.syncState(newState)
+      assert.deepEqual(presence.state, newState)
+    })
+
+    it("onJoins new presences and onLeave's left presences", () => {
+      const newState = fixtures.state()
+      const presence = new Presence()
+      presence.state = {u4: {metas: [{id: 4, phx_ref: "4"}]}}
+      const joined = {}
+      const left = {}
+      presence.onJoin( (key, current, newPres) => {
+        joined[key] = {current: current, newPres: newPres}
+      })
+      presence.onLeave( (key, current, leftPres) => {
+        left[key] = {current: current, leftPres: leftPres}
+      })
+      presence.syncState(newState)
+      assert.deepEqual(presence.state, newState)
+      assert.deepEqual(joined, {
+        u1: {current: null, newPres: {metas: [{id: 1, phx_ref: "1"}]}},
+        u2: {current: null, newPres: {metas: [{id: 2, phx_ref: "2"}]}},
+        u3: {current: null, newPres: {metas: [{id: 3, phx_ref: "3"}]}}
+      })
+      assert.deepEqual(left, {
+        u4: {current: {metas: []}, leftPres: {metas: [{id: 4, phx_ref: "4"}]}}
+      })
+    })
+
+    it("onJoins only newly added metas", () => {
+      const newState = {u3: {metas: [{id: 3, phx_ref: "3"}, {id: 3, phx_ref: "3.new"}]}}
+      const presence = new Presence()
+      presence.state = {u3: {metas: [{id: 3, phx_ref: "3"}]}}
+      const joined = {}
+      const left = {}
+      presence.onJoin( (key, current, newPres) => {
+        joined[key] = {current: current, newPres: newPres}
+      })
+      presence.onLeave( (key, current, leftPres) => {
+        left[key] = {current: current, leftPres: leftPres}
+      })
+      presence.syncState(newState)
+      assert.deepEqual(presence.state, newState)
+      assert.deepEqual(joined, {
+        u3: {current: {metas: [{id: 3, phx_ref: "3"}]},
+             newPres: {metas: [{id: 3, phx_ref: "3"}, {id: 3, phx_ref: "3.new"}]}}
+      })
+      assert.deepEqual(left, {})
+    })
+  })
+
+  describe("syncDiff", () => {
+    it("syncs empty state", () => {
+      const joins = {u1: {metas: [{id: 1, phx_ref: "1"}]}}
+
+      const presence = new Presence()
+      presence.syncDiff({joins: joins, leaves: {}})
+      assert.deepEqual(presence.state, joins)
+    })
+
+    it("removes presence when meta is empty and adds additional meta", () => {
+      const presence = new Presence()
+      presence.state = fixtures.state()
+      presence.syncDiff({joins: fixtures.joins(), leaves: fixtures.leaves()})
+
+      assert.deepEqual(presence.state, {
+        u1: {metas: [{id: 1, phx_ref: "1"}, {id: 1, phx_ref: "1.2"}]},
+        u3: {metas: [{id: 3, phx_ref: "3"}]}
+      })
+    })
+
+    it("removes meta while leaving key if other metas exist", () => {
+      const presence = new Presence()
+      presence.state = {
+        u1: {metas: [{id: 1, phx_ref: "1"}, {id: 1, phx_ref: "1.2"}]}
+      }
+      presence.syncDiff({joins: {}, leaves: {u1: {metas: [{id: 1, phx_ref: "1"}]}}})
+
+      assert.deepEqual(presence.state, {
+        u1: {metas: [{id: 1, phx_ref: "1.2"}]},
+      })
+    })
+  })
+
+
+  describe("list", () => {
+    it("lists full presence by default", () => {
+      const presence = new Presence()
+      presence.state = fixtures.state()
+      assert.deepEqual(presence.list(), [
+        {metas: [{id: 1, phx_ref: "1"}]},
+        {metas: [{id: 2, phx_ref: "2"}]},
+        {metas: [{id: 3, phx_ref: "3"}]}
+      ])
+    })
+
+    it("lists with custom function", () => {
+      const presence = new Presence()
+      presence.state = {u1: {metas: [
+        {id: 1, phx_ref: "1.first"},
+        {id: 1, phx_ref: "1.second"}]
+      }}
+
+      const listBy = (key, {metas: [first, ...rest]}) => {
+        return first
+      }
+
+      assert.deepEqual(presence.list(listBy), [
+        {id: 1, phx_ref: "1.first"}
+      ])
+    })
+  })
+})

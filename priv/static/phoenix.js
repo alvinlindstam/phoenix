@@ -1161,15 +1161,44 @@ var Ajax = exports.Ajax = function () {
 Ajax.states = { complete: 4 };
 
 var Presence = exports.Presence = function () {
-  function Presence(initialState, onJoin, onLeave) {
+  function Presence() {
     _classCallCheck(this, Presence);
 
-    this.state = initialState || {};
-    this.onJoin = onJoin || function () {};
-    this.onLeave = onLeave || function () {};
+    this.state = {};
+    this.hooks = {
+      join: [],
+      leave: [],
+      change: []
+    };
   }
 
   _createClass(Presence, [{
+    key: "onJoin",
+    value: function onJoin(callback) {
+      this.hooks.join.push(callback);
+    }
+  }, {
+    key: "onLeave",
+    value: function onLeave(callback) {
+      this.hooks.leave.push(callback);
+    }
+  }, {
+    key: "onChange",
+    value: function onChange(callback) {
+      this.hooks.change.push(callback);
+    }
+  }, {
+    key: "_trigger",
+    value: function _trigger(hook_key) {
+      for (var _len = arguments.length, args = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+        args[_key - 1] = arguments[_key];
+      }
+
+      this.hooks[hook_key].forEach(function (h) {
+        return h.apply(undefined, args);
+      });
+    }
+  }, {
     key: "syncState",
     value: function syncState(newState) {
       var _this13 = this;
@@ -1230,7 +1259,7 @@ var Presence = exports.Presence = function () {
 
           (_state$key$metas = state[key].metas).unshift.apply(_state$key$metas, _toConsumableArray(currentPresence.metas));
         }
-        _this14.onJoin(key, currentPresence, newPresence);
+        _this14._trigger("join", key, currentPresence, newPresence);
       });
       this.map(leaves, function (key, leftPresence) {
         var currentPresence = state[key];
@@ -1243,12 +1272,13 @@ var Presence = exports.Presence = function () {
         currentPresence.metas = currentPresence.metas.filter(function (p) {
           return refsToRemove.indexOf(p.phx_ref) < 0;
         });
-        _this14.onLeave(key, currentPresence, leftPresence);
+        _this14._trigger("leave", key, currentPresence, leftPresence);
         if (currentPresence.metas.length === 0) {
           delete state[key];
         }
       });
       this.state = state;
+      this._trigger("change", this);
     }
   }, {
     key: "list",
@@ -1285,22 +1315,31 @@ var Presence = exports.Presence = function () {
   }], [{
     key: "syncState",
     value: function syncState(currentState, newState, onJoin, onLeave) {
-      var instance = new Presence(currentState, onJoin, onLeave);
+      var instance = Presence._init(currentState, onJoin, onLeave);
       instance.syncState(newState);
       return instance.state;
     }
   }, {
     key: "syncDiff",
     value: function syncDiff(currentState, diff, onJoin, onLeave) {
-      var instance = new Presence(currentState, onJoin, onLeave);
+      var instance = Presence._init(currentState, onJoin, onLeave);
       instance.syncDiff(diff);
       return instance.state;
     }
   }, {
     key: "list",
     value: function list(presences, chooser) {
-      var instance = new Presence(presences);
+      var instance = Presence._init(presences);
       return instance.list(chooser);
+    }
+  }, {
+    key: "_init",
+    value: function _init(currentState, onJoin, onLeave) {
+      var instance = new Presence();
+      instance.state = currentState;
+      onJoin && instance.onJoin(onJoin);
+      onLeave && instance.onLeave(onLeave);
+      return instance;
     }
   }]);
 

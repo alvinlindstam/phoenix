@@ -833,11 +833,19 @@ Ajax.states = {complete: 4}
 
 
 export class Presence {
-  constructor(initialState, onJoin, onLeave){
-    this.state = initialState || {}
-    this.onJoin = onJoin || (() => {})
-    this.onLeave = onLeave || (() => {})
+  constructor(){
+    this.state = {}
+    this.hooks = {
+      join: [],
+      leave: [],
+      change: [],
+    }
   }
+
+  onJoin(callback) {this.hooks.join.push(callback)}
+  onLeave(callback) {this.hooks.leave.push(callback)}
+  onChange(callback) {this.hooks.change.push(callback)}
+  _trigger(hook_key, ...args) {this.hooks[hook_key].forEach( h => h(...args) )}
 
   syncState(newState){
     let state = this.state
@@ -880,7 +888,7 @@ export class Presence {
       if(currentPresence){
         state[key].metas.unshift(...currentPresence.metas)
       }
-      this.onJoin(key, currentPresence, newPresence)
+      this._trigger("join", key, currentPresence, newPresence)
     })
     this.map(leaves, (key, leftPresence) => {
       let currentPresence = state[key]
@@ -889,12 +897,13 @@ export class Presence {
       currentPresence.metas = currentPresence.metas.filter(p => {
         return refsToRemove.indexOf(p.phx_ref) < 0
       })
-      this.onLeave(key, currentPresence, leftPresence)
+      this._trigger("leave", key, currentPresence, leftPresence)
       if(currentPresence.metas.length === 0){
         delete state[key]
       }
     })
     this.state = state
+    this._trigger("change", this)
   }
 
   list(chooser){
@@ -907,20 +916,28 @@ export class Presence {
 
   // legace functional API, used in phoenix<1.3
   static syncState(currentState, newState, onJoin, onLeave){
-    const instance = new Presence(currentState, onJoin, onLeave)
+    const instance = Presence._init(currentState, onJoin, onLeave)
     instance.syncState(newState)
     return instance.state
   }
 
   static syncDiff(currentState, diff, onJoin, onLeave){
-    const instance = new Presence(currentState, onJoin, onLeave)
+    const instance = Presence._init(currentState, onJoin, onLeave)
     instance.syncDiff(diff)
     return instance.state
   }
 
   static list(presences, chooser){
-    const instance = new Presence(presences)
+    const instance = Presence._init(presences)
     return instance.list(chooser)
+  }
+
+  static _init(currentState, onJoin, onLeave) {
+    const instance = new Presence()
+    instance.state = currentState
+    onJoin && instance.onJoin(onJoin)
+    onLeave && instance.onLeave(onLeave)
+    return instance
   }
 
   // private
